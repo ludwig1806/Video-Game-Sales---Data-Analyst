@@ -1,7 +1,14 @@
+-- ========================================
+-- Project: Video Game Sales Analysis
+-- Dataset: Kaggle - Video Game Sales
+-- Database: MySQL
+-- ========================================
+
+
 SELECT * FROM vgsales;
 
 
--- Data Cleaning
+-- Create Staging Tables
 CREATE TABLE vgsales_stagging
 LIKE vgsales;
 
@@ -12,7 +19,8 @@ INSERT INTO vgsales_stagging
 SELECT *
 FROM vgsales;
 
--- 1. Remove Duplicates
+
+-- 1. Remove Duplicates Records
 
 SELECT *, 
 ROW_NUMBER() OVER (
@@ -62,7 +70,7 @@ DELETE
 FROM vgsales_stagging2
 WHERE row_num>1;
 
--- Standardizing data
+-- 2. Standardizing data
 
 SELECT *
 FROM vgsales_stagging2;
@@ -73,16 +81,11 @@ GROUP BY `Name`
 ORDER BY total DESC;
 
 UPDATE vgsales_stagging2
-SET `Name` = TRIM(`Name`),
-`Name` = lower(`Name`);
-
-SELECT Platform, COUNT(Platform)
-FROM vgsales_stagging2
-GROUP BY Platform;
-
-UPDATE vgsales_stagging2
-SET Platform = TRIM(Platform),
-Platform = lower(Platform);
+SET 
+	`Name` = LOWER(TRIM(`Name`)),
+	Platform = LOWER(TRIM(Platform)),
+	Genre = LOWER(TRIM(Genre)),
+	Publisher = LOWER(TRIM(Publisher));
 
 SELECT COUNT(*) AS invalid_year_count
 FROM vgsales_stagging2
@@ -90,41 +93,20 @@ WHERE year REGEXP '[^0-9]'
    OR year IS NULL
    OR year = '';
 
+-- Clean invalid year values
 UPDATE vgsales_stagging2
 SET `Year` = NULL
 WHERE `Year` REGEXP '[^0-9]'
    OR `Year` = '';
 
-SELECT DISTINCT year
-FROM vgsales_stagging2
-ORDER BY year;
-
-UPDATE vgsales_stagging2
-SET Genre = TRIM(Genre),
-Genre = lower(Genre);
-
-SELECT DISTINCT(Publisher)
-FROM vgsales_stagging2;
-
-SELECT COUNT(`Year`)
-FROM vgsales_stagging2
-WHERE `year` REGEXP '[^0-9]';
-
 SELECT *
 FROM vgsales_stagging2
 WHERE `year` REGEXP '[^0-9]';
 
 SELECT *
-FROM vgsales_stagging2
-WHERE `year` LIKE 'N/A';
-
-UPDATE vgsales_stagging2
-SET publisher = TRIM(publisher),
-publisher = lower(publisher);
-
-SELECT *
 FROM vgsales_stagging2;
 
+-- 3. Null Value or blank values
 SELECT COUNT(*) AS invalid_year_count
 FROM vgsales_stagging2
 WHERE year REGEXP '[^0-9]'
@@ -143,12 +125,15 @@ ORDER BY year;
 ALTER TABLE vgsales_stagging2
 MODIFY year INT;
 
+
+-- 4. Removes Any Columns. 
 ALTER TABLE vgsales_stagging2
 DROP COLUMN row_num;
 
 SELECT *
 FROM vgsales_stagging2;
 
+-- Games released per year
 SELECT `year`,
 	COUNT(*) AS frequency,
 	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
@@ -158,20 +143,7 @@ GROUP BY Year
 ORDER BY persentase DESC
 LIMIT 5;
 
-SELECT `year`,
-	COUNT(*) AS frequency,
-	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
-FROM vgsales_stagging2
-WHERE Year IS NOT NULL
-GROUP BY Year
-ORDER BY persentase ASC
-LIMIT 5;
-
-SELECT Name, NA_Sales, EU_Sales, JP_Sales, Other_Sales, Global_Sales,
-       (Global_Sales - (NA_Sales + EU_Sales + JP_Sales + Other_Sales)) AS selisih
-FROM vgsales
-WHERE ABS(Global_Sales - (NA_Sales + EU_Sales + JP_Sales + Other_Sales)) > 0.01;
-
+-- Global sales statistics
 SELECT
     AVG(NA_Sales) AS avg_NA,
     AVG(EU_Sales) AS avg_EU,
@@ -179,9 +151,11 @@ SELECT
     AVG(Other_Sales) AS avg_Other,
     AVG(Global_Sales) AS avg_Global,
     MIN(Global_Sales) AS min_Global,
-    MAX(Global_Sales) AS max_Global
+    MAX(Global_Sales) AS max_Global,
+	stddev(Global_Sales) AS std_Global
 FROM vgsales_stagging2;
 
+-- Percentage Contribution Regional
 SELECT 
     Name,
     NA_Sales / Global_Sales * 100 AS pct_NA,
@@ -190,6 +164,7 @@ SELECT
     Other_Sales / Global_Sales * 100 AS pct_Other
 FROM vgsales_stagging2;
 
+-- Aggregation Sales per Year
 SELECT Year, 
        SUM(NA_Sales) AS total_NA,
        SUM(EU_Sales) AS total_EU,
@@ -201,6 +176,8 @@ WHERE Year IS NOT NULL
 GROUP BY Year
 ORDER BY Year;
 
+
+-- Top Games by Sales
 SELECT `Name`,
 	COUNT(*) AS frequency,
 	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
@@ -210,24 +187,7 @@ GROUP BY Name
 ORDER BY persentase DESC
 LIMIT 5;
 
-SELECT `Name`,
-	COUNT(*) AS frequency,
-	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
-FROM vgsales_stagging2
-WHERE Year IS NOT NULL
-GROUP BY Name
-ORDER BY persentase ASC
-LIMIT 5;
-
-SELECT Platform,
-	COUNT(*) AS frequency,
-	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
-FROM vgsales_stagging2
-WHERE Platform IS NOT NULL
-GROUP BY Platform
-ORDER BY persentase ASC
-LIMIT 5;
-
+-- Top platforms by number of games
 SELECT Platform,
 	COUNT(*) AS frequency,
 	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
@@ -237,15 +197,7 @@ GROUP BY Platform
 ORDER BY persentase DESC
 LIMIT 5;
 
-SELECT Genre,
-	COUNT(*) AS frequency,
-	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
-FROM vgsales_stagging2
-WHERE Genre IS NOT NULL
-GROUP BY Genre
-ORDER BY persentase ASC
-LIMIT 5;
-
+-- Top Genre by number of Genres
 SELECT Genre,
 	COUNT(*) AS frequency,
 	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
@@ -255,15 +207,7 @@ GROUP BY Genre
 ORDER BY persentase DESC
 LIMIT 5;
 
-SELECT Publisher,
-	COUNT(*) AS frequency,
-	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
-FROM vgsales_stagging2
-WHERE Publisher IS NOT NULL
-GROUP BY Publisher
-ORDER BY persentase ASC
-LIMIT 5;
-
+-- Top Publisher
 SELECT Publisher,
 	COUNT(*) AS frequency,
 	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
@@ -273,6 +217,7 @@ GROUP BY Publisher
 ORDER BY persentase DESC
 LIMIT 5;
 
+-- Top Games per Region
 SELECT `Name`,Platform, NA_Sales
 FROM vgsales_stagging2
 ORDER BY NA_Sales DESC
@@ -293,6 +238,8 @@ FROM vgsales_stagging2
 ORDER BY NA_Sales DESC
 LIMIT 5;
 
+
+-- Top Global Sales (1980-2016)
 SELECT Name, Platform, Year, Global_Sales,
 	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
 FROM vgsales_stagging2
