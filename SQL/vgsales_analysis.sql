@@ -182,10 +182,9 @@ SELECT `Name`,
 	COUNT(*) AS frequency,
 	ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS persentase
 FROM vgsales_stagging2
-WHERE Year IS NOT NULL
 GROUP BY Name
-ORDER BY persentase DESC
-LIMIT 5;
+ORDER BY frequency DESC
+LIMIT 10;
 
 -- Top platforms by number of games
 SELECT Platform,
